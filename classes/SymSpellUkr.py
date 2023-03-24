@@ -7,10 +7,8 @@ from symspellpy import SymSpell, Verbosity
 
 
 class SymSpell_Ukr:
-    def __init__(self, sym_spell, bigrams_folder_path="dicts/bigrams_parts", new_freq_path, SPACY_UDPIPE_MODEL):
-
+    def __init__(self, sym_spell, bigrams_folder_path, new_freq_path, SPACY_UDPIPE_MODEL):
         self.sym_spell = sym_spell
-
         self.concatenate_files(bigrams_folder_path)
         self.sym_spell.load_bigram_dictionary('concatenated_bigrams.txt', term_index=0, count_index=2, encoding="utf-8")
         self.sym_spell.load_dictionary(new_freq_path, 0, 1, encoding="utf-8")
@@ -101,4 +99,3 @@ class SymSpell_Ukr:
         for value in res.values():
             words.append([c for c in value.keys()][0])
         return " ".join(words)
-
