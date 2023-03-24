@@ -6,7 +6,7 @@ import stanza
 from symspellpy import SymSpell, Verbosity
 
 
-class SymSpell_Ukr:
+class SymSpellUkr:
     def __init__(self, sym_spell, bigrams_folder_path, new_freq_path, SPACY_UDPIPE_MODEL):
         self.sym_spell = sym_spell
         self.concatenate_files(bigrams_folder_path)
