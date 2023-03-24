@@ -5,15 +5,16 @@ import tempfile
 import stanza
 from symspellpy import SymSpell, Verbosity
 
-
 class SymSpellUkr:
-    def __init__(self, sym_spell, bigrams_folder_path, new_freq_path, SPACY_UDPIPE_MODEL):
+    def __init__(self, sym_spell, bigrams_folder_path, new_freq_path, dict_path, space_handler, SPACY_UDPIPE_MODEL):
         self.sym_spell = sym_spell
         self.concatenate_files(bigrams_folder_path)
         self.sym_spell.load_bigram_dictionary('concatenated_bigrams.txt', term_index=0, count_index=2, encoding="utf-8")
-        self.sym_spell.load_dictionary(new_freq_path, 0, 1, encoding="utf-8")
+        self.sym_spell.load_dictionary(new_freq_path, 0, 1,  encoding = "utf-8")
         self.SPACY_UDPIPE_MODEL = SPACY_UDPIPE_MODEL
         self.pattern = r'"[^"]*"|\d+|[^\u0400-\u04FF]|(\b[А-ЯІЇЄ][А-Яа-яіїєІЇЄ]*\b)'  # ігнорує слова в лапках, некирилицю та слова з великої літери
+        self.ukrainian_dict = self.init_dict(dict_path)
+        self.space_handler = space_handler
 
     def concatenate_files(self, bigrams_folder_path, number_of_files=61):
         data = ""
@@ -30,6 +31,21 @@ class SymSpellUkr:
         with open('concatenated_bigrams.txt', 'w', encoding="utf-8") as res:
             res.write(data)
         return
+
+    def init_dict(self, dict_path): # dict always .json
+      with open(dict_path, encoding="utf-8") as json_file:
+              ukrainian_dict = json.load(json_file)
+      ukrainian_dict = set(ukrainian_dict)
+
+      return ukrainian_dict
+
+    def tokenize(self, text):
+      if not hasattr(self.tokenize, "nlp"):
+          local_tokenizer = stanza.Pipeline(lang="uk", processors="tokenize")
+      nlp = local_tokenizer
+
+      tokenized = " ".join([t.text for t in nlp(text).iter_tokens()])
+      return tokenized
 
     def lookup(self, phrase: str):
         # lookup suggestions for multi-word input strings (supports compound
@@ -66,21 +82,21 @@ class SymSpellUkr:
 
     def suggest_sentence(self, sent: str):
         pattern = re.compile(self.pattern)
-        # sent = self.s_handler.space_oddity(sent)
+        #sent = self.s_handler.space_oddity(sent)
         sent = sent.split()
         res = {}
-        # print(sent)
+        #print(sent)
         for i in range(len(sent)):
             origin = sent[i]
             st = set(origin)
             checked = True
             for c in '";,:.!-_?':
-                if c in st:
-                    checked = False
+              if c in st:
+                checked = False
 
             if not checked:
-                res[i] = {self.save_capitalization(origin, sent[i]): 1}
-                continue
+              res[i] = {self.save_capitalization(origin, sent[i]): 1}
+              continue
 
             if pattern.match(sent[i]):
                 res[i] = {self.save_capitalization(origin, sent[i]): 1}
@@ -99,3 +115,32 @@ class SymSpellUkr:
         for value in res.values():
             words.append([c for c in value.keys()][0])
         return " ".join(words)
+
+    def de_symspell(self, sent):
+      if sent in self.ukrainian_dict or len(sent) <= 2 :
+        return [sent]
+      sym_spell_suggestions, sent = self.suggest_sentence(sent)
+
+      final = []
+      for i in range(len(sym_spell_suggestions)):
+        my_dict = sym_spell_suggestions[i]
+        the_best = [ [key, value] for key, value in my_dict.items() if value == max(my_dict.values())]
+        final.append(the_best[0][0] if the_best[0][1] > 0 else sent[i])
+
+      return final
+
+
+    def spellify(self, sent):
+      sent = self.tokenize(sent)
+      try:
+        splitted = sent.split()
+        res = []
+        for sp in splitted:
+          x = self.de_symspell(sp)[0]
+          res.append(x)
+
+        return self.space_handler.fried_nails(" ".join(res))
+
+      except Exception as ex:
+        print("Exception = ", ex)
+        return sent
